@@ -2,9 +2,183 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>COMETS TEST</title>
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <title>COMETS LIFF TEST</title>
+
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f6f8;
+      margin: 0;
+      padding: 20px;
+    }
+
+    .box {
+      background: white;
+      padding: 18px;
+      border-radius: 12px;
+      margin-bottom: 12px;
+    }
+
+    .success {
+      background: #ddf5e5;
+      color: #146c2e;
+    }
+
+    .error {
+      background: #ffe1e1;
+      color: #a61b1b;
+    }
+  </style>
 </head>
+
 <body>
-  <h1>COMETS GitHub Pages OK</h1>
+
+  <div class="box">
+    <h2>🍚🍎 COMETS LIFF TEST</h2>
+  </div>
+
+  <div
+    id="status"
+    class="box"
+  >
+    STEP 1: กำลังเริ่ม LIFF...
+  </div>
+
+  <div
+    id="result"
+    class="box"
+  >
+    รอผล...
+  </div>
+
+
+<script>
+
+const LIFF_ID =
+  '2011065250-bVXNe3Hv';
+
+
+async function startLiff() {
+
+  const status =
+    document.getElementById('status');
+
+  const result =
+    document.getElementById('result');
+
+
+  try {
+
+    status.innerText =
+      'STEP 1: กำลังเรียก liff.init()';
+
+
+    await liff.init({
+      liffId: LIFF_ID
+    });
+
+
+    status.innerText =
+      'STEP 2: LIFF INIT สำเร็จ';
+
+
+    const inClient =
+      liff.isInClient();
+
+
+    const loggedIn =
+      liff.isLoggedIn();
+
+
+    result.innerText =
+      'isInClient = ' +
+      inClient +
+      '\n' +
+      'isLoggedIn = ' +
+      loggedIn;
+
+
+    if (!loggedIn) {
+
+      result.className =
+        'box error';
+
+      result.innerText +=
+        '\n\nยังไม่ได้ Login LINE';
+
+      return;
+
+    }
+
+
+    status.innerText =
+      'STEP 3: กำลังอ่าน LINE Profile';
+
+
+    const profile =
+      await liff.getProfile();
+
+
+    status.innerText =
+      'STEP 4: LIFF ใช้งานได้';
+
+
+    status.className =
+      'box success';
+
+
+    result.className =
+      'box success';
+
+
+    result.innerText =
+      'ชื่อ LINE: ' +
+      profile.displayName +
+      '\n\n' +
+      'User ID: ' +
+      profile.userId +
+      '\n\n' +
+      'isInClient = ' +
+      inClient +
+      '\n' +
+      'isLoggedIn = ' +
+      loggedIn;
+
+  } catch (error) {
+
+    status.innerText =
+      'LIFF ERROR';
+
+    status.className =
+      'box error';
+
+
+    result.className =
+      'box error';
+
+
+    result.innerText =
+      error &&
+      error.message
+        ? error.message
+        : String(error);
+
+  }
+
+}
+
+
+window.onload =
+  startLiff;
+
+</script>
+
 </body>
 </html>
