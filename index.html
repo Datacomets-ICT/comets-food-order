@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html>
+
 <head>
   <meta charset="UTF-8">
 
@@ -50,6 +51,7 @@
   </style>
 </head>
 
+
 <body>
 
   <div class="box">
@@ -58,12 +60,14 @@
     </div>
   </div>
 
+
   <div
     id="status"
     class="box"
   >
     STEP 1: กำลังเริ่มระบบ...
   </div>
+
 
   <div
     id="result"
@@ -98,6 +102,7 @@ async function startApp() {
       'status'
     );
 
+
   const result =
     document.getElementById(
       'result'
@@ -127,9 +132,21 @@ async function startApp() {
       !liff.isLoggedIn()
     ) {
 
-      throw new Error(
-        'LINE ยังไม่ได้ Login'
-      );
+      status.innerText =
+        'กำลังเข้าสู่ระบบ LINE...';
+
+
+      result.innerText =
+        'กำลังเปิดหน้าล็อกอิน LINE';
+
+
+      liff.login({
+        redirectUri:
+          window.location.href
+      });
+
+
+      return;
 
     }
 
@@ -332,8 +349,10 @@ async function startApp() {
       output +=
         '\n\n====================\n';
 
+
       output +=
         'เมนูวันนี้';
+
 
       output +=
         '\n====================';
@@ -369,8 +388,10 @@ async function startApp() {
       output +=
         '\n\n====================\n';
 
+
       output +=
         'Active Order';
+
 
       output +=
         '\n====================';
@@ -439,4 +460,5 @@ window.onload =
 </script>
 
 </body>
+
 </html>
