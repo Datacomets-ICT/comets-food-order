@@ -2,12 +2,13 @@
 <html>
 <head>
   <meta charset="UTF-8">
+
   <meta
     name="viewport"
     content="width=device-width, initial-scale=1.0"
   >
 
-  <title>COMETS LIFF TEST</title>
+  <title>COMETS API TEST</title>
 
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 
@@ -35,25 +36,38 @@
       background: #ffe1e1;
       color: #a61b1b;
     }
+
+    .title {
+      font-size: 24px;
+      font-weight: bold;
+    }
+
+    .result {
+      white-space: pre-line;
+      line-height: 1.6;
+      word-break: break-word;
+    }
   </style>
 </head>
 
 <body>
 
   <div class="box">
-    <h2>🍚🍎 COMETS LIFF TEST</h2>
+    <div class="title">
+      🍚🍎 COMETS API TEST
+    </div>
   </div>
 
   <div
     id="status"
     class="box"
   >
-    STEP 1: กำลังเริ่ม LIFF...
+    STEP 1: กำลังเริ่มระบบ...
   </div>
 
   <div
     id="result"
-    class="box"
+    class="box result"
   >
     รอผล...
   </div>
@@ -61,23 +75,43 @@
 
 <script>
 
+// ======================================================
+// CONFIG
+// ======================================================
+
 const LIFF_ID =
   '2011065250-bVXNe3Hv';
 
 
-async function startLiff() {
+const API_URL =
+  'https://script.google.com/macros/s/AKfycbx3iwmf_-TkyPr_69ELJeeThiEPAb_8gsUxgQgIni8cRnXlYr4XGdXt5QJ7rW_-QlF1CQ/exec';
+
+
+// ======================================================
+// START
+// ======================================================
+
+async function startApp() {
 
   const status =
-    document.getElementById('status');
+    document.getElementById(
+      'status'
+    );
 
   const result =
-    document.getElementById('result');
+    document.getElementById(
+      'result'
+    );
 
 
   try {
 
+    // ==================================================
+    // STEP 1 : LIFF INIT
+    // ==================================================
+
     status.innerText =
-      'STEP 1: กำลังเรียก liff.init()';
+      'STEP 1: กำลังเชื่อมต่อ LINE';
 
 
     await liff.init({
@@ -85,49 +119,134 @@ async function startLiff() {
     });
 
 
-    status.innerText =
-      'STEP 2: LIFF INIT สำเร็จ';
+    // ==================================================
+    // CHECK LOGIN
+    // ==================================================
 
+    if (
+      !liff.isLoggedIn()
+    ) {
 
-    const inClient =
-      liff.isInClient();
-
-
-    const loggedIn =
-      liff.isLoggedIn();
-
-
-    result.innerText =
-      'isInClient = ' +
-      inClient +
-      '\n' +
-      'isLoggedIn = ' +
-      loggedIn;
-
-
-    if (!loggedIn) {
-
-      result.className =
-        'box error';
-
-      result.innerText +=
-        '\n\nยังไม่ได้ Login LINE';
-
-      return;
+      throw new Error(
+        'LINE ยังไม่ได้ Login'
+      );
 
     }
 
 
+    // ==================================================
+    // STEP 2 : LINE PROFILE
+    // ==================================================
+
     status.innerText =
-      'STEP 3: กำลังอ่าน LINE Profile';
+      'STEP 2: กำลังอ่าน LINE Profile';
 
 
     const profile =
       await liff.getProfile();
 
 
+    const userId =
+      profile.userId;
+
+
+    const name =
+      profile.displayName;
+
+
+    // ==================================================
+    // STEP 3 : APPS SCRIPT API
+    // ==================================================
+
     status.innerText =
-      'STEP 4: LIFF ใช้งานได้';
+      'STEP 3: กำลังเชื่อมต่อ Apps Script';
+
+
+    const response =
+      await fetch(
+        API_URL,
+        {
+          method: 'POST',
+
+          headers: {
+            'Content-Type':
+              'text/plain;charset=utf-8'
+          },
+
+          body:
+            JSON.stringify({
+
+              action:
+                'getAppData',
+
+              userId:
+                userId
+
+            })
+        }
+      );
+
+
+    // ==================================================
+    // READ RESPONSE
+    // ==================================================
+
+    const responseText =
+      await response.text();
+
+
+    console.log(
+      'API RAW RESPONSE:',
+      responseText
+    );
+
+
+    let responseData;
+
+
+    try {
+
+      responseData =
+        JSON.parse(
+          responseText
+        );
+
+    } catch (parseError) {
+
+      throw new Error(
+        'Apps Script ตอบกลับไม่ใช่ JSON\n\n' +
+        responseText
+      );
+
+    }
+
+
+    // ==================================================
+    // CHECK API RESULT
+    // ==================================================
+
+    if (
+      !responseData.success
+    ) {
+
+      throw new Error(
+        responseData.message ||
+        'Apps Script API ไม่สำเร็จ'
+      );
+
+    }
+
+
+    const appData =
+      responseData.data;
+
+
+    // ==================================================
+    // STEP 4 : SUCCESS
+    // ==================================================
+
+    status.innerText =
+      'STEP 4: เชื่อมต่อระบบสำเร็จ';
 
 
     status.className =
@@ -135,33 +254,168 @@ async function startLiff() {
 
 
     result.className =
-      'box success';
+      'box result success';
+
+
+    let output = '';
+
+
+    output +=
+      'ชื่อ LINE: ' +
+      name +
+      '\n\n';
+
+
+    output +=
+      'User ID: ' +
+      userId +
+      '\n\n';
+
+
+    output +=
+      'isInClient = ' +
+      liff.isInClient() +
+      '\n';
+
+
+    output +=
+      'isLoggedIn = ' +
+      liff.isLoggedIn() +
+      '\n\n';
+
+
+    output +=
+      'orderOpen = ' +
+      appData.orderOpen +
+      '\n';
+
+
+    output +=
+      'orderMessage = ' +
+      appData.orderMessage +
+      '\n';
+
+
+    output +=
+      'closeTime = ' +
+      (
+        appData.closeTime ||
+        ''
+      ) +
+      '\n\n';
+
+
+    output +=
+      'จำนวนเมนู = ' +
+      (
+        appData.menus
+          ? appData.menus.length
+          : 0
+      ) +
+      '\n';
+
+
+    output +=
+      'hasActiveOrder = ' +
+      appData.hasActiveOrder;
+
+
+    // ==================================================
+    // MENU
+    // ==================================================
+
+    if (
+      appData.menus &&
+      appData.menus.length > 0
+    ) {
+
+      output +=
+        '\n\n====================\n';
+
+      output +=
+        'เมนูวันนี้';
+
+      output +=
+        '\n====================';
+
+
+      appData.menus.forEach(
+        function(item) {
+
+          output +=
+            '\n\n' +
+            item.menuId +
+            '\n' +
+            item.menu +
+            '\n' +
+            item.price +
+            ' บาท';
+
+        }
+      );
+
+    }
+
+
+    // ==================================================
+    // CURRENT ORDER
+    // ==================================================
+
+    if (
+      appData.hasActiveOrder &&
+      appData.currentOrder
+    ) {
+
+      output +=
+        '\n\n====================\n';
+
+      output +=
+        'Active Order';
+
+      output +=
+        '\n====================';
+
+
+      output +=
+        '\nOrder ID: ' +
+        appData.currentOrder.orderId;
+
+
+      output +=
+        '\nจำนวน: ' +
+        appData.currentOrder.totalQty;
+
+
+      output +=
+        '\nยอดรวม: ' +
+        appData.currentOrder.totalAmount +
+        ' บาท';
+
+    }
 
 
     result.innerText =
-      'ชื่อ LINE: ' +
-      profile.displayName +
-      '\n\n' +
-      'User ID: ' +
-      profile.userId +
-      '\n\n' +
-      'isInClient = ' +
-      inClient +
-      '\n' +
-      'isLoggedIn = ' +
-      loggedIn;
+      output;
+
 
   } catch (error) {
 
+    console.error(
+      'COMETS ERROR:',
+      error
+    );
+
+
     status.innerText =
-      'LIFF ERROR';
+      'ERROR';
+
 
     status.className =
       'box error';
 
 
     result.className =
-      'box error';
+      'box result error';
 
 
     result.innerText =
@@ -175,8 +429,12 @@ async function startLiff() {
 }
 
 
+// ======================================================
+// START APP
+// ======================================================
+
 window.onload =
-  startLiff;
+  startApp;
 
 </script>
 
