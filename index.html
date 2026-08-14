@@ -40,6 +40,8 @@
 
     .user-box { text-align: center; font-size: 14px; }
     .status-box { text-align: center; font-weight: bold; }
+    .status-box.status-open { background: #06c755; color: #fff; font-size: 19px; padding: 20px; }
+    .status-box.status-closed { background: #d93025; color: #fff; font-size: 19px; padding: 20px; }
 
     .loading { text-align: center; padding: 30px; color: #666; }
 
@@ -50,6 +52,7 @@
     }
 
     .menu-name { font-size: 18px; font-weight: bold; }
+    .menu-detail { margin-top: 4px; font-size: 14px; color: #06864a; }
     .menu-price { margin-top: 5px; color: #555; }
 
     .qty-section {
@@ -209,7 +212,6 @@
 
   <div id="loading" class="loading">กำลังโหลดข้อมูล...</div>
 
-  <!-- SCREEN 1 : ORDER FORM -->
   <div id="orderFormScreen" class="hidden">
 
     <div class="orderer-card">
@@ -231,7 +233,7 @@
         oninput="ordererDepartment = this.value; updateSummary();"
       >
 
-      <div class="close-note">เปิดรับ Order ถึง 19:00 น.</div>
+      <div class="close-note">เปิดรับ Order ถึง 18:40 น.</div>
     </div>
 
     <div id="menuContainer"></div>
@@ -256,7 +258,6 @@
     </button>
   </div>
 
-  <!-- SCREEN 2 : REVIEW -->
   <div id="reviewScreen" class="hidden">
     <div class="panel">
       <h2 id="reviewTitle">ตรวจสอบออเดอร์</h2>
@@ -285,7 +286,6 @@
     </button>
   </div>
 
-  <!-- SCREEN 3 : CURRENT ORDER -->
   <div id="currentOrderScreen" class="hidden">
     <div class="panel">
       <h2>✅ ออเดอร์ของคุณวันนี้</h2>
@@ -322,7 +322,6 @@
     </button>
   </div>
 
-  <!-- SCREEN 4 : CANCEL CONFIRM -->
   <div id="cancelScreen" class="hidden">
     <div class="warning-box">
       <strong>⚠️ ยืนยันการยกเลิกออเดอร์</strong>
@@ -364,6 +363,7 @@ window.onload = startApp;
 async function startApp() {
   try {
     setStatus('กำลังเชื่อมต่อ LINE...');
+
     await liff.init({ liffId: LIFF_ID });
 
     if (!liff.isLoggedIn()) {
@@ -389,28 +389,35 @@ async function startApp() {
 
 async function apiRequest(action, payload) {
   const body = Object.assign({ action: action }, payload || {});
+
   const response = await fetch(API_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify(body)
   });
+
   const text = await response.text();
+
   let json;
   try {
     json = JSON.parse(text);
   } catch (error) {
     throw new Error('Apps Script ตอบกลับไม่ใช่ JSON');
   }
+
   if (!json.success) {
     throw new Error(json.message || 'เกิดข้อผิดพลาดจากระบบ');
   }
+
   return json.data;
 }
 
 async function loadAppData() {
   showLoading('กำลังโหลดข้อมูลออเดอร์...');
+
   try {
     const result = await apiRequest('getAppData', { userId: lineUserId });
+
     appData = result;
     menuData = result.menus || [];
     orderOpen = result.orderOpen;
@@ -418,6 +425,8 @@ async function loadAppData() {
     currentItems = result.currentItems || [];
 
     setStatus(result.orderMessage);
+    document.getElementById('statusBox').className =
+      'status-box ' + (result.orderOpen ? 'status-open' : 'status-closed');
     hideLoading();
     clearMessage();
 
@@ -440,6 +449,7 @@ async function loadAppData() {
 function initializeEmptyOrder() {
   quantities = {};
   notes = {};
+
   menuData.forEach(function(item) {
     quantities[item.menuId] = 0;
     notes[item.menuId] = '';
@@ -467,7 +477,8 @@ function renderOrderForm() {
   const container = document.getElementById('menuContainer');
 
   if (!menuData || menuData.length === 0) {
-    container.innerHTML = '<div class="status-box">วันนี้ยังไม่มีเมนูเปิดขาย</div>';
+    container.innerHTML =
+      '<div class="status-box">วันนี้ยังไม่มีเมนูเปิดขาย</div>';
     document.getElementById('orderFormScreen').classList.remove('hidden');
     updateSummary();
     return;
@@ -488,21 +499,45 @@ function renderOrderForm() {
     html += `
       <div class="menu-card">
         <div class="menu-name">${escapeHtml(item.menu)}</div>
+        ${item.detail ? `<div class="menu-detail">${escapeHtml(item.detail)}</div>` : ''}
         <div class="menu-price">${item.price} บาท</div>
+
         <div class="qty-section">
-          <button type="button" class="qty-button" onclick="changeQty('${item.menuId}', -1)" ${!orderOpen ? 'disabled' : ''}>−</button>
+          <button
+            type="button"
+            class="qty-button"
+            onclick="changeQty('${item.menuId}', -1)"
+            ${!orderOpen ? 'disabled' : ''}
+          >−</button>
+
           <div id="qty_${item.menuId}" class="qty-value">${qty}</div>
-          <button type="button" class="qty-button" onclick="changeQty('${item.menuId}', 1)" ${!orderOpen ? 'disabled' : ''}>+</button>
+
+          <button
+            type="button"
+            class="qty-button"
+            onclick="changeQty('${item.menuId}', 1)"
+            ${!orderOpen ? 'disabled' : ''}
+          >+</button>
         </div>
+
         <div class="note-label">หมายเหตุ</div>
-        <textarea id="note_${item.menuId}" placeholder="เช่น ไม่เผ็ด / ไม่ใส่ผัก" oninput="saveNote('${item.menuId}', this.value)" ${!orderOpen ? 'disabled' : ''}>${escapeHtml(note)}</textarea>
+        <textarea
+          id="note_${item.menuId}"
+          placeholder="เช่น ไม่เผ็ด / ไม่ใส่ผัก"
+          oninput="saveNote('${item.menuId}', this.value)"
+          ${!orderOpen ? 'disabled' : ''}
+        >${escapeHtml(note)}</textarea>
       </div>
     `;
   });
 
   container.innerHTML = html;
+
   document.getElementById('orderFormScreen').classList.remove('hidden');
-  document.getElementById('reviewButton').innerText = isEditMode ? 'ตรวจสอบการแก้ไข' : 'ตรวจสอบออเดอร์';
+
+  document.getElementById('reviewButton').innerText =
+    isEditMode ? 'ตรวจสอบการแก้ไข' : 'ตรวจสอบออเดอร์';
+
   updateSummary();
 }
 
@@ -518,12 +553,16 @@ function changeQty(menuId, change) {
     showMessage('ปิดรับ Order แล้ว', false);
     return;
   }
+
   let qty = quantities[menuId] || 0;
   qty += change;
   if (qty < 0) qty = 0;
+
   quantities[menuId] = qty;
+
   const element = document.getElementById('qty_' + menuId);
   if (element) element.innerText = qty;
+
   updateSummary();
 }
 
@@ -534,22 +573,30 @@ function saveNote(menuId, value) {
 function updateSummary() {
   let totalQty = 0;
   let totalAmount = 0;
+
   menuData.forEach(function(item) {
     const qty = quantities[item.menuId] || 0;
     totalQty += qty;
     totalAmount += qty * Number(item.price);
   });
+
   document.getElementById('totalQty').innerText = totalQty;
   document.getElementById('totalAmount').innerText = totalAmount;
-  document.getElementById('reviewButton').disabled = !orderOpen || totalQty === 0 || !isOrdererFilled();
+
+  document.getElementById('reviewButton').disabled =
+    !orderOpen ||
+    totalQty === 0 ||
+    !isOrdererFilled();
 }
 
 function isOrdererFilled() {
-  return String(ordererName || '').trim() !== '' && String(ordererDepartment || '').trim() !== '';
+  return String(ordererName || '').trim() !== '' &&
+         String(ordererDepartment || '').trim() !== '';
 }
 
 function collectSelectedItems() {
   const items = [];
+
   menuData.forEach(function(item) {
     const qty = quantities[item.menuId] || 0;
     if (qty > 0) {
@@ -560,6 +607,7 @@ function collectSelectedItems() {
       });
     }
   });
+
   return items;
 }
 
@@ -568,11 +616,14 @@ function showReviewScreen() {
     showMessage('ปิดรับ Order แล้ว', false);
     return;
   }
+
   if (!isOrdererFilled()) {
     showMessage('กรุณากรอกชื่อผู้สั่งและแผนกให้ครบ', false);
     return;
   }
+
   const items = collectSelectedItems();
+
   if (items.length === 0) {
     showMessage('กรุณาเลือกสินค้าอย่างน้อย 1 รายการ', false);
     return;
@@ -585,12 +636,18 @@ function showReviewScreen() {
   let html = '';
   let totalQty = 0;
   let totalAmount = 0;
+
   items.forEach(function(selected) {
-    const menu = menuData.find(function(item) { return item.menuId === selected.menuId; });
+    const menu = menuData.find(function(item) {
+      return item.menuId === selected.menuId;
+    });
+
     if (!menu) return;
+
     const amount = selected.qty * Number(menu.price);
     totalQty += selected.qty;
     totalAmount += amount;
+
     html += `
       <div class="review-item">
         <strong>${escapeHtml(menu.menu)}</strong>
@@ -606,9 +663,15 @@ function showReviewScreen() {
   document.getElementById('reviewItems').innerHTML = html;
   document.getElementById('reviewTotalQty').innerText = totalQty + ' กล่อง';
   document.getElementById('reviewTotalAmount').innerText = totalAmount + ' บาท';
-  document.getElementById('reviewTitle').innerText = isEditMode ? 'ตรวจสอบการแก้ไขออเดอร์' : 'ตรวจสอบออเดอร์';
-  document.getElementById('finalConfirmButton').innerText = isEditMode ? 'ยืนยันการแก้ไข' : 'ยืนยันออเดอร์';
+
+  document.getElementById('reviewTitle').innerText =
+    isEditMode ? 'ตรวจสอบการแก้ไขออเดอร์' : 'ตรวจสอบออเดอร์';
+
+  document.getElementById('finalConfirmButton').innerText =
+    isEditMode ? 'ยืนยันการแก้ไข' : 'ยืนยันออเดอร์';
+
   clearMessage();
+
   hideAllScreens();
   document.getElementById('reviewScreen').classList.remove('hidden');
 }
@@ -622,10 +685,12 @@ async function confirmOrder() {
     showMessage('ปิดรับ Order แล้ว', false);
     return;
   }
+
   if (!isOrdererFilled()) {
     showMessage('กรุณากรอกชื่อผู้สั่งและแผนกให้ครบ', false);
     return;
   }
+
   const items = collectSelectedItems();
   if (items.length === 0) return;
 
@@ -645,6 +710,7 @@ async function confirmOrder() {
         department: department,
         items: items
       });
+
       showMessage('✅ แก้ไขออเดอร์เรียบร้อยแล้ว', true);
     } else {
       const result = await apiRequest('createOrder', {
@@ -653,8 +719,10 @@ async function confirmOrder() {
         department: department,
         items: items
       });
+
       showMessage('✅ ยืนยันออเดอร์เรียบร้อยแล้ว\nOrder ID: ' + result.orderId, true);
     }
+
     button.disabled = false;
     await loadAppData();
   } catch (error) {
@@ -666,6 +734,7 @@ async function confirmOrder() {
 
 function showCurrentOrder() {
   hideAllScreens();
+
   document.getElementById('currentOrderId').innerText = currentOrder.orderId;
 
   const orderName = currentOrder.name || '';
@@ -678,6 +747,7 @@ function showCurrentOrder() {
   document.getElementById('currentOrderAmount').innerText = currentOrder.totalAmount + ' บาท';
 
   let html = '';
+
   currentItems.forEach(function(item) {
     html += `
       <div class="review-item">
@@ -690,8 +760,11 @@ function showCurrentOrder() {
       </div>
     `;
   });
+
   document.getElementById('currentOrderItems').innerHTML = html;
+
   document.getElementById('currentOrderScreen').classList.remove('hidden');
+
   document.getElementById('editOrderButton').disabled = !orderOpen;
   document.getElementById('cancelOrderButton').disabled = !orderOpen;
 }
@@ -701,14 +774,19 @@ function startEditOrder() {
     showMessage('ปิดรับ Order แล้ว', false);
     return;
   }
+
   isEditMode = true;
+
   ordererName = currentOrder.name || '';
   ordererDepartment = currentOrder.department || '';
+
   initializeEmptyOrder();
+
   currentItems.forEach(function(item) {
     quantities[item.menuId] = Number(item.qty);
     notes[item.menuId] = item.note || '';
   });
+
   clearMessage();
   renderOrderForm();
 }
@@ -718,6 +796,7 @@ function showCancelConfirm() {
     showMessage('ปิดรับ Order แล้ว', false);
     return;
   }
+
   clearMessage();
   hideAllScreens();
   document.getElementById('cancelScreen').classList.remove('hidden');
@@ -729,17 +808,22 @@ function backToCurrentOrder() {
 
 async function confirmCancelOrder() {
   if (!currentOrder) return;
+
   const button = document.getElementById('confirmCancelButton');
   button.disabled = true;
   button.innerText = 'กำลังยกเลิก...';
+
   try {
     await apiRequest('cancelOrder', {
       orderId: currentOrder.orderId,
       userId: lineUserId
     });
+
     showMessage('✅ ยกเลิกออเดอร์เรียบร้อยแล้ว', true);
+
     button.disabled = false;
     button.innerText = 'ยืนยันยกเลิกออเดอร์';
+
     await loadAppData();
   } catch (error) {
     button.disabled = false;
