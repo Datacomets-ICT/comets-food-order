@@ -15,11 +15,13 @@
   h2 { font-size:17px; margin:0 0 12px; display:flex; align-items:center; gap:8px; }
   label { display:block; font-size:14px; margin:10px 0 4px; font-weight:bold; }
   input, select { width:100%; padding:10px; border:1px solid #ddd; border-radius:10px; font-family:inherit; font-size:15px; }
-  .row { display:flex; gap:8px; align-items:flex-end; margin-bottom:8px; }
+  .mrow { border:1px solid #eee; border-radius:12px; padding:10px; margin-bottom:10px; background:#fafbfc; }
+  .row { display:flex; gap:8px; align-items:flex-end; }
   .row .c-name { flex:1; }
-  .row .c-price { width:90px; }
-  .row .c-cat { width:100px; }
-  .row .c-del { width:44px; }
+  .row .c-price { width:80px; }
+  .row .c-cat { width:92px; }
+  .row .c-del { width:42px; }
+  .m-detail { margin-top:8px; font-size:14px; }
   .btn { width:100%; padding:14px; border:none; border-radius:12px; font-size:16px; font-weight:bold; cursor:pointer; margin-top:10px; }
   .primary { background:#06c755; color:#fff; }
   .secondary { background:#eceff3; color:#222; }
@@ -29,6 +31,7 @@
   .btn-sm { padding:10px; font-size:14px; border-radius:10px; border:none; cursor:pointer; }
   .times { display:flex; gap:10px; }
   .times > div { flex:1; }
+  .timeout { font-size:13px; color:#06864a; font-weight:bold; margin-top:4px; }
   .msg { padding:12px 14px; border-radius:10px; margin-bottom:12px; white-space:pre-line; font-size:14px; }
   .ok { background:#ddf5e5; color:#146c2e; }
   .err { background:#ffe1e1; color:#a61b1b; }
@@ -42,49 +45,52 @@
 </head>
 <body>
 <div class="wrap">
-
+ 
   <div class="header">
     <h1>🍚🍎 COMETS Admin</h1>
     <div class="sub">จัดการเมนู · เปิดรับออเดอร์ · สรุปยอด</div>
   </div>
-
+ 
   <div id="msgBox"></div>
-
+ 
   <div id="loginCard" class="card">
     <h2>🔒 เข้าสู่ระบบ</h2>
     <label>รหัส PIN</label>
     <input type="password" id="pin" inputmode="numeric" placeholder="กรอกรหัส PIN">
     <button class="btn primary" onclick="login()">เข้าสู่ระบบ</button>
   </div>
-
+ 
   <div id="app" class="hidden">
-
+ 
     <div class="card">
       <h2>1) เมนูวันนี้</h2>
       <div id="menuList"></div>
       <button class="btn ghost" onclick="addRow()">+ เพิ่มเมนู</button>
-
+ 
       <div class="times" style="margin-top:14px;">
         <div>
-          <label>ปิดรับเวลา</label>
-          <input type="time" id="closeTime" value="18:40">
+          <label>ปิดรับเวลา (24 ชม.)</label>
+          <input type="time" id="closeTime" value="18:40" oninput="updateTimeOut()">
+          <div class="timeout" id="closeOut"></div>
         </div>
         <div>
-          <label>ส่งสรุปเวลา</label>
-          <input type="time" id="summaryTime" value="18:45">
+          <label>ส่งสรุปเวลา (24 ชม.)</label>
+          <input type="time" id="summaryTime" value="18:45" oninput="updateTimeOut()">
+          <div class="timeout" id="summaryOut"></div>
         </div>
       </div>
-
+ 
       <button class="btn primary" id="saveBtn" onclick="saveDay()">💾 บันทึกเมนู & เปิดรับออเดอร์</button>
       <div class="hint">กดแล้วระบบจะตั้งเมนู + เปิดรับออเดอร์ของวันนี้ให้อัตโนมัติ</div>
     </div>
-
+ 
     <div class="card">
       <h2>2) สถานะรับออเดอร์ <span id="statusPill" class="status-pill"></span></h2>
       <div id="statusText" class="hint" style="margin-bottom:8px;"></div>
+      <button class="btn primary" onclick="openOrders()">▶ เปิดรับออเดอร์อีกครั้ง</button>
       <button class="btn danger" onclick="closeOrders()">⏹ ปิดรับออเดอร์ก่อนเวลา</button>
     </div>
-
+ 
     <div class="card">
       <h2>3) สรุปยอดวันนี้</h2>
       <div id="summaryBox" class="summary-box">กด "ดูสรุปยอด" เพื่อโหลด</div>
@@ -92,15 +98,15 @@
       <button class="btn primary" onclick="sendSummary()">📤 ส่งสรุปเข้า LINE เดี๋ยวนี้</button>
       <div class="hint">ปกติระบบส่งอัตโนมัติตามเวลาที่ตั้งไว้ ปุ่มนี้ใช้เมื่อต้องการส่งก่อน</div>
     </div>
-
+ 
   </div>
 </div>
-
+ 
 <script>
 const API_URL = 'https://script.google.com/macros/s/AKfycbx3iwmf_-TkyPr_69ELJeeThiEPAb_8gsUxgQgIni8cRnXlYr4XGdXt5QJ7rW_-QlF1CQ/exec';
-
+ 
 let PIN = '';
-
+ 
 async function api(action, extra) {
   const body = Object.assign({ action: action, pin: PIN }, extra || {});
   const res = await fetch(API_URL, {
@@ -115,15 +121,22 @@ async function api(action, extra) {
   if (!json.success) throw new Error(json.message || 'เกิดข้อผิดพลาด');
   return json.data;
 }
-
+ 
 function showMsg(text, ok) {
   const box = document.getElementById('msgBox');
   box.innerHTML = '<div class="msg ' + (ok ? 'ok' : 'err') + '">' + text + '</div>';
   if (ok) setTimeout(function(){ box.innerHTML=''; }, 4000);
 }
-
+ 
 function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-
+ 
+function updateTimeOut() {
+  const c = document.getElementById('closeTime').value;
+  const s = document.getElementById('summaryTime').value;
+  document.getElementById('closeOut').innerText = c ? 'ตั้งไว้ ' + c + ' น.' : '';
+  document.getElementById('summaryOut').innerText = s ? 'ตั้งไว้ ' + s + ' น.' : '';
+}
+ 
 async function login() {
   const pin = document.getElementById('pin').value.trim();
   if (!pin) { showMsg('กรุณากรอก PIN', false); return; }
@@ -139,39 +152,43 @@ async function login() {
     showMsg(e.message, false);
   }
 }
-
-function menuRowHtml(menu, price, category) {
+ 
+function menuRowHtml(menu, price, category, detail) {
   const foodSel = category === 'Fruit' ? '' : 'selected';
   const fruitSel = category === 'Fruit' ? 'selected' : '';
-  return '<div class="row">' +
-    '<div class="c-name"><input type="text" class="m-name" placeholder="ชื่อเมนู" value="' + esc(menu) + '"></div>' +
-    '<div class="c-price"><input type="number" class="m-price" placeholder="ราคา" value="' + (price||'') + '"></div>' +
-    '<div class="c-cat"><select class="m-cat"><option value="Food" ' + foodSel + '>อาหาร</option><option value="Fruit" ' + fruitSel + '>ผลไม้</option></select></div>' +
-    '<div class="c-del"><button class="btn-sm danger" onclick="this.closest(\'.row\').remove()">✕</button></div>' +
+  return '<div class="mrow">' +
+    '<div class="row">' +
+      '<div class="c-name"><input type="text" class="m-name" placeholder="ชื่อเมนู" value="' + esc(menu) + '"></div>' +
+      '<div class="c-price"><input type="number" class="m-price" placeholder="ราคา" value="' + (price||'') + '"></div>' +
+      '<div class="c-cat"><select class="m-cat"><option value="Food" ' + foodSel + '>อาหาร</option><option value="Fruit" ' + fruitSel + '>ผลไม้</option></select></div>' +
+      '<div class="c-del"><button class="btn-sm danger" onclick="this.closest(\'.mrow\').remove()">✕</button></div>' +
+    '</div>' +
+    '<input type="text" class="m-detail" placeholder="รายละเอียด เช่น เลือกเส้น/น้ำ-แห้ง (ถ้ามี)" value="' + esc(detail) + '">' +
     '</div>';
 }
-
-function addRow(menu, price, category) {
-  document.getElementById('menuList').insertAdjacentHTML('beforeend', menuRowHtml(menu||'', price||'', category||'Food'));
+ 
+function addRow(menu, price, category, detail) {
+  document.getElementById('menuList').insertAdjacentHTML('beforeend', menuRowHtml(menu||'', price||'', category||'Food', detail||''));
 }
-
+ 
 function collectItems() {
   const items = [];
-  document.querySelectorAll('#menuList .row').forEach(function(row){
+  document.querySelectorAll('#menuList .mrow').forEach(function(row){
     const name = row.querySelector('.m-name').value.trim();
     const price = row.querySelector('.m-price').value;
     const cat = row.querySelector('.m-cat').value;
-    if (name) items.push({ menu: name, price: Number(price), category: cat });
+    const detail = row.querySelector('.m-detail').value.trim();
+    if (name) items.push({ menu: name, price: Number(price), category: cat, detail: detail });
   });
   return items;
 }
-
+ 
 async function loadDay() {
   try {
     const data = await api('adminGetDay', {});
     document.getElementById('menuList').innerHTML = '';
     if (data.menus && data.menus.length) {
-      data.menus.forEach(function(m){ addRow(m.menu, m.price, m.category); });
+      data.menus.forEach(function(m){ addRow(m.menu, m.price, m.category, m.detail); });
     } else {
       addRow(); addRow();
     }
@@ -179,13 +196,88 @@ async function loadDay() {
       if (data.setting.closeTime) document.getElementById('closeTime').value = toTime(data.setting.closeTime);
       if (data.setting.summaryTime) document.getElementById('summaryTime').value = toTime(data.setting.summaryTime);
     }
+    updateTimeOut();
     renderStatus(data.orderStatus);
   } catch (e) {
     showMsg(e.message, false);
   }
 }
-
+ 
 function toTime(v){
   const s = String(v);
   const m = s.match(/(\d{1,2}):(\d{2})/);
-  if (m) return m[1].padStart(2,'0') +
+  if (m) return m[1].padStart(2,'0') + ':' + m[2];
+  return '';
+}
+ 
+function renderStatus(st) {
+  const pill = document.getElementById('statusPill');
+  const txt = document.getElementById('statusText');
+  if (st && st.open) {
+    pill.className = 'status-pill open'; pill.innerText = 'เปิดรับอยู่';
+  } else {
+    pill.className = 'status-pill closed'; pill.innerText = 'ปิดรับ';
+  }
+  txt.innerText = st ? st.message : '';
+}
+ 
+async function saveDay() {
+  const items = collectItems();
+  if (items.length === 0) { showMsg('กรุณากรอกเมนูอย่างน้อย 1 รายการ', false); return; }
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true; btn.innerText = 'กำลังบันทึก...';
+  try {
+    const r = await api('adminSaveDay', {
+      items: items,
+      closeTime: document.getElementById('closeTime').value,
+      summaryTime: document.getElementById('summaryTime').value
+    });
+    showMsg('✅ บันทึกแล้ว ' + r.savedMenus + ' เมนู · เปิดรับถึง ' + r.closeTime + ' น.', true);
+    await loadDay();
+  } catch (e) {
+    showMsg(e.message, false);
+  } finally {
+    btn.disabled = false; btn.innerText = '💾 บันทึกเมนู & เปิดรับออเดอร์';
+  }
+}
+ 
+async function openOrders() {
+  if (!confirm('เปิดรับออเดอร์ของวันนี้อีกครั้ง?')) return;
+  try {
+    await api('adminSetOpen', {});
+    showMsg('✅ เปิดรับออเดอร์แล้ว', true);
+    await loadDay();
+  } catch (e) { showMsg(e.message, false); }
+}
+ 
+async function closeOrders() {
+  if (!confirm('ยืนยันปิดรับออเดอร์ของวันนี้?')) return;
+  try {
+    await api('adminSetClosed', {});
+    showMsg('✅ ปิดรับออเดอร์แล้ว', true);
+    await loadDay();
+  } catch (e) { showMsg(e.message, false); }
+}
+ 
+async function loadSummary() {
+  document.getElementById('summaryBox').innerText = 'กำลังโหลด...';
+  try {
+    const s = await api('adminGetSummary', {});
+    document.getElementById('summaryBox').innerText = s.message;
+  } catch (e) {
+    document.getElementById('summaryBox').innerText = '';
+    showMsg(e.message, false);
+  }
+}
+ 
+async function sendSummary() {
+  if (!confirm('ส่งสรุปยอดเข้า LINE ให้ Operator เดี๋ยวนี้?')) return;
+  try {
+    const r = await api('adminSendSummary', {});
+    const ok = r.filter(function(x){ return x.success; }).length;
+    showMsg('✅ ส่งสำเร็จ ' + ok + '/' + r.length + ' คน', true);
+  } catch (e) { showMsg(e.message, false); }
+}
+</script>
+</body>
+</html>
